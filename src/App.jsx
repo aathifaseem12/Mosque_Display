@@ -32,11 +32,15 @@ export default function App() {
   const [adminPreview, setAdminPreview] = useState(null);
   const [selectedPrayer, setSelectedPrayer] = useState(null);
   
+  // States for Text Editor
+  const [isEditingText, setIsEditingText] = useState(false);
+  const [tempText, setTempText] = useState("");
+
   const lastTriggered = useRef(null);
   const previewTimer = useRef(null);
   const interactionTimer = useRef(null);
 
-  // BULLETPROOF STATE INITIALIZATION: Safely merges old cache with new features
+  // BULLETPROOF STATE INITIALIZATION
   const [prefs, setPrefs] = useState(() => {
     const saved = localStorage.getItem('mosque_settings');
     const defaultPrefs = {
@@ -49,6 +53,7 @@ export default function App() {
       c_idx_iqamath_text: settings.c_idx_iqamath_text || 3,
       c_idx_iqamath_bg: settings.c_idx_iqamath_bg || 0,
       hijri_offset: settings.hijri_offset || -1,
+      raw_announcements: settings.raw_announcements || ";; Welcome ,, Please silent your phones",
       prayerOverrides: {} 
     };
 
@@ -78,13 +83,26 @@ export default function App() {
     interactionTimer.current = setTimeout(() => setSelectedPrayer(null), 10000);
   };
 
+  // MAIN KEYBOARD CONTROLLER
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // DANGER PREVENTER: Do not trigger hotkeys if user is typing in the input box!
+      if (document.activeElement.tagName.toLowerCase() === 'input') return;
+
       const key = e.key;
       const keyLower = key.toLowerCase();
 
+      // Prevent default F-key browser behavior (like F5 refresh)
       if (key.match(/^F[1-9]$/)) e.preventDefault(); 
       resetInteraction();
+
+      // Open Text Editor
+      if (keyLower === 't') {
+        e.preventDefault();
+        setTempText(prefs.raw_announcements);
+        setIsEditingText(true);
+        return;
+      }
 
       setPrefs(prev => {
         let newPrefs = { ...prev };
@@ -117,11 +135,13 @@ export default function App() {
             break;
         }
 
+        // Prayer Selection for editing (1-6)
         if (['1','2','3','4','5','6'].includes(key)) {
           setSelectedPrayer(PRAYER_ORDER[parseInt(key) - 1]);
           return newPrefs; 
         }
 
+        // Manual Time/Iqamath Adjustment
         if (selectedPrayer && ['h', 'm', '+', '-'].includes(keyLower)) {
           const todayKey = getLocalDateString(new Date());
           const baseData = timetable[todayKey]?.[selectedPrayer] || settings.prayer_data[selectedPrayer];
@@ -153,14 +173,12 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedPrayer]);
+  }, [selectedPrayer, isEditingText, prefs.raw_announcements]);
 
-  // Safely consolidates JSON data + Manual overrides without crashing
+  // Consolidates JSON Data + User Manual Edits safely
   const getPrayerData = (prayer) => {
     const todayKey = getLocalDateString(time);
     const base = timetable[todayKey]?.[prayer] || settings.prayer_data[prayer];
-    
-    // Failsafe fallback
     if (!base) return { h: 0, m: 0, iq: 15, jiq: 45 };
 
     const baseTime = Array.isArray(base) ? base : base.time;
@@ -168,7 +186,6 @@ export default function App() {
     const baseJum = base.jumuah_iqamath || 45;
 
     const override = (prefs.prayerOverrides && prefs.prayerOverrides[prayer]) ? prefs.prayerOverrides[prayer] : {};
-    
     return {
       h: override.h !== undefined ? override.h : baseTime[0],
       m: override.m !== undefined ? override.m : baseTime[1],
@@ -177,12 +194,13 @@ export default function App() {
     };
   };
 
+  // CLOCK TRIGGER ENGINE
   useEffect(() => {
     const timer = setInterval(() => {
       const now = new Date();
       setTime(now);
 
-      if (activeAlert || adminPreview) return; 
+      if (activeAlert || adminPreview || isEditingText) return; 
 
       const currentHour = now.getHours();
       const currentMin = now.getMinutes();
@@ -203,8 +221,9 @@ export default function App() {
       }
     }, 1000);
     return () => clearInterval(timer);
-  }, [activeAlert, adminPreview, prefs]);
+  }, [activeAlert, adminPreview, prefs, isEditingText]);
 
+  // AZAN TO IQAMATH TRANSITION
   const triggerIqamathSequence = (prayer, pData, now) => {
     setActiveAlert('azan'); 
     const delayMinutes = (now.getDay() === 5 && prayer === 'Dhuhr') ? pData.jiq : pData.iq;
@@ -214,6 +233,7 @@ export default function App() {
     }, 10000); 
   };
 
+  // COUNTDOWN TICKER
   useEffect(() => {
     let interval = null;
     if (activeAlert === 'iqamath' && countdown > 0) {
@@ -224,29 +244,79 @@ export default function App() {
     return () => clearInterval(interval);
   }, [activeAlert, countdown]);
 
+  // FULLSCREEN TOGGLE HELPER
+  const toggleFullScreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.log(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
+
+  // DATE FORMATTING
   const timeString = time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const dateString = time.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
   const offsetTime = new Date(time.getTime() + (prefs.hijri_offset * 24 * 60 * 60 * 1000));
   const hijriString = new Intl.DateTimeFormat('en-TN-u-ca-islamic', { day: 'numeric', month: 'long', year: 'numeric' }).format(offsetTime) + " AH";
 
   return (
-    <div className="app-container" style={{ backgroundImage: `url(${bgImage})` }}>
+    <div 
+      className="app-container" 
+      style={{ backgroundImage: `url(${bgImage})` }}
+      onDoubleClick={toggleFullScreen} // Double click to go Fullscreen!
+    >
       
-      {adminPreview && !activeAlert && (
+      {/* TEXT EDITOR OVERLAY */}
+      {isEditingText && (
+        <div className="alert-overlay" style={{ backgroundColor: "rgba(0,0,0,0.9)", zIndex: 2000 }}>
+          <h1 style={{ fontSize: '4rem', marginBottom: '30px', color: 'white' }}>Edit Announcements</h1>
+          <input 
+            autoFocus
+            type="text" 
+            value={tempText}
+            onChange={(e) => setTempText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                setPrefs(prev => ({ ...prev, raw_announcements: tempText }));
+                setIsEditingText(false);
+              } else if (e.key === 'Escape') {
+                setIsEditingText(false);
+              }
+            }}
+            style={{
+              width: '80%', padding: '20px', fontSize: '2.5rem', 
+              backgroundColor: '#222', color: 'white', border: '2px solid white',
+              outline: 'none', borderRadius: '10px'
+            }}
+          />
+          <p style={{ fontSize: '1.5rem', marginTop: '20px', color: 'gray' }}>
+            Press <b>Enter</b> to Save, <b>Escape</b> to Cancel.<br/>Use <b>;;</b> for ★ and <b>,,</b> for •
+          </p>
+        </div>
+      )}
+
+      {/* ADMIN PREVIEW OVERLAY */}
+      {adminPreview && !activeAlert && !isEditingText && (
         <div className="alert-overlay" style={{ backgroundColor: adminPreview.bgColor || BG_COLORS[prefs.c_idx_iqamath_bg], color: adminPreview.txtColor || COLORS[prefs.c_idx_iqamath_text] }}>
           <h1 style={{ fontSize: '5rem', textShadow: '4px 4px 0px black' }}>{adminPreview.title}</h1>
           <h2 style={{ fontSize: '3rem', marginTop: '20px' }}>{adminPreview.detail}</h2>
         </div>
       )}
 
-      {activeAlert && (
+      {/* IQAMATH COUNTDOWN OVERLAY */}
+      {activeAlert && !isEditingText && (
         <div className="alert-overlay" style={{ backgroundColor: BG_COLORS[prefs.c_idx_iqamath_bg], color: COLORS[prefs.c_idx_iqamath_text] }}>
           <h1>{activeAlert === 'azan' ? "TIME FOR AZAN" : "IQAMATH IN"}</h1>
           {activeAlert === 'iqamath' && <h2>{Math.floor(countdown / 60)}:{(countdown % 60).toString().padStart(2, '0')}</h2>}
         </div>
       )}
 
-      <div className="glass-panel" style={{ visibility: (activeAlert || adminPreview) ? 'hidden' : 'visible' }}>
+      {/* MAIN SCREEN */}
+      <div className="glass-panel" style={{ visibility: (activeAlert || adminPreview || isEditingText) ? 'hidden' : 'visible' }}>
         <h1 className="masjid-title" style={{ color: COLORS[prefs.c_idx_masjid] }}>{MASJID_NAME}</h1>
         
         <div className="clock-section">
@@ -263,17 +333,21 @@ export default function App() {
             
             let color = COLORS[prefs.c_idx_prayer];
             if (prayer === selectedPrayer) {
-              color = "red"; 
+              color = "red"; // Active edit mode
             } else {
               const prayerTime = new Date(time);
               prayerTime.setHours(pData.h, pData.m, 0, 0);
               const diffMinutes = (time - prayerTime) / (1000 * 60);
               if (diffMinutes >= 0 && diffMinutes <= 60) color = COLORS[prefs.c_idx_prayer_high];
             }
+
+            // CHECK FOR FRIDAY (Day 5) FOR JUMUAH DISPLAY
+            const isFriday = time.getDay() === 5;
+            const displayName = (prayer === "Dhuhr" && isFriday) ? "Jumuah" : prayer;
             
             return (
               <div key={prayer} className="prayer-card" style={{ color: color }}>
-                <h2>{prayer}</h2>
+                <h2>{displayName}</h2>
                 <p>{`${displayHour}:${pData.m.toString().padStart(2, '0')} ${ampm}`}</p>
               </div>
             );
@@ -281,9 +355,10 @@ export default function App() {
         </div>
       </div>
 
-      <div className="ticker-container" style={{ visibility: (activeAlert || adminPreview) ? 'hidden' : 'visible' }}>
+      {/* ANNOUNCEMENT TICKER */}
+      <div className="ticker-container" style={{ visibility: (activeAlert || adminPreview || isEditingText) ? 'hidden' : 'visible' }}>
         <div className="ticker-text" style={{ color: COLORS[prefs.c_idx_masjid] }}>
-          {settings.raw_announcements.replace(/;;/g, ' ★ ').replace(/,,/g, ' • ')}
+          {prefs.raw_announcements.replace(/;;/g, ' ★ ').replace(/,,/g, ' • ')}
         </div>
       </div>
     </div>

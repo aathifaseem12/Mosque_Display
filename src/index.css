@@ -1,0 +1,110 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body, html {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background-color: black;
+  font-family: 'Arial', sans-serif;
+}
+
+.app-container {
+  width: 100vw;
+  height: 100vh;
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  flex-direction: column;
+  color: white;
+}
+
+/* Adds a dark, semi-transparent overlay just like your Tkinter stipple */
+.glass-panel {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 5vh;
+}
+
+/* Shadows matching your Tkinter create_shadow_text logic */
+.masjid-title {
+  font-size: 5rem;
+  color: gold;
+  text-align: center;
+  white-space: pre-line;
+  text-shadow: 4px 4px 0px black, -4px -4px 0px black, 4px -4px 0px black, -4px 4px 0px black;
+  margin-bottom: 30px;
+}
+
+.clock-time {
+  font-size: 8rem;
+  color: #00FF00;
+  text-shadow: 4px 4px 0px black;
+}
+
+.clock-date, .clock-hijri {
+  font-size: 2.5rem;
+  color: white;
+  text-align: center;
+}
+
+.prayer-grid {
+  display: flex;
+  width: 90%;
+  justify-content: space-around;
+  margin-top: auto;
+  margin-bottom: 120px;
+}
+
+.prayer-card {
+  text-align: center;
+  font-size: 2.5rem;
+  color: cyan;
+  text-shadow: 2px 2px 0px black;
+}
+
+/* CSS Scrolling Ticker */
+.ticker-container {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: 70px;
+  background-color: #1a1a1a;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.ticker-text {
+  font-size: 2rem;
+  white-space: nowrap;
+  animation: scrollTicker 30s linear infinite;
+}
+
+@keyframes scrollTicker {
+  0% { transform: translateX(100vw); }
+  100% { transform: translateX(-100%); }
+}
+
+/* Azan/Iqamath Overlay */
+.alert-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: black;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  font-size: 6rem;
+  color: white;
+}

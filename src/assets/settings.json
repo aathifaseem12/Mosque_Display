@@ -1,0 +1,20 @@
+{
+  "prayer_data": {
+    "Fajr": {"time": [4, 31], "iqamath": 20}, 
+    "Sunrise": {"time": [5, 54], "iqamath": 2}, 
+    "Dhuhr": {"time": [12, 7], "iqamath": 1, "jumuah_iqamath": 45}, 
+    "Asr": {"time": [15, 31], "iqamath": 10}, 
+    "Maghrib": {"time": [18, 20], "iqamath": 10}, 
+    "Isha": {"time": [23, 52], "iqamath": 1}
+  }, 
+  "raw_announcements": ";; Please switch off your mobile phones,   ;; Straighten the rows for prayer", 
+  "c_idx_masjid": 13, 
+  "c_idx_clock": 2, 
+  "c_idx_prayer": 9, 
+  "c_idx_prayer_high": 0, 
+  "c_idx_greg_cal": 3, 
+  "c_idx_hijri_cal": 10, 
+  "c_idx_iqamath_text": 8, 
+  "c_idx_iqamath_bg": 6, 
+  "hijri_offset": -1
+}
